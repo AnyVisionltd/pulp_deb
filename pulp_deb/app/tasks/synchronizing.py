@@ -47,7 +47,6 @@ from pulp_deb.app.models import (
 
 from pulp_deb.app.serializers import InstallerPackage822Serializer, Package822Serializer
 
-
 log = logging.getLogger(__name__)
 
 
@@ -407,13 +406,16 @@ class DebFirstStage(Stage):
 
     async def _handle_distribution(self, distribution):
         log.info('Downloading Release file for distribution: "{}"'.format(distribution))
+        if '/' in distribution:
+            updated_d_artifacts = [self._to_d_artifact(os.path.join(distribution, filename)) for filename in
+                                   ["Release", "InRelease", "Release.gpg"]]
+        else:
+            updated_d_artifacts = [self._to_d_artifact(os.path.join("dists", distribution, filename)) for filename in
+                                   ["Release", "InRelease", "Release.gpg"]]
         # Create release_file
         release_file_dc = DeclarativeContent(
             content=ReleaseFile(distribution=distribution),
-            d_artifacts=[
-                self._to_d_artifact(os.path.join("dists", distribution, filename))
-                for filename in ["Release", "InRelease", "Release.gpg"]
-            ],
+            d_artifacts=updated_d_artifacts,
         )
         release_file = await self._create_unit(release_file_dc)
         if release_file is None:
@@ -496,7 +498,7 @@ class DebFirstStage(Stage):
         await asyncio.gather(*pending_tasks)
 
     async def _handle_package_index(
-        self, release_file, release_component, architecture, file_references, infix=""
+            self, release_file, release_component, architecture, file_references, infix=""
     ):
         # Create package_index
         release_base_path = os.path.dirname(release_file.relative_path)
@@ -574,7 +576,7 @@ class DebFirstStage(Stage):
             await self.put(package_release_component_dc)
 
     async def _handle_installer_file_index(
-        self, release_file, release_component, architecture, file_references
+            self, release_file, release_component, architecture, file_references
     ):
         # Create installer file index
         release_base_path = os.path.dirname(release_file.relative_path)
